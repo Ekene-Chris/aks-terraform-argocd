@@ -74,13 +74,23 @@ resource_group_name    = "dev-aks-rg"
 kubernetes_version     = "1.28.0"
 admin_group_object_ids = ["your-azure-ad-group-id"]
 
+# ArgoCD configuration
 argocd_domain   = "argocd-dev.yourdomain.com"
 github_org      = "your-org"
 github_repo     = "your-repo"
 target_revision = "main"
+
+# Set to true after AKS is created (Phase 2)
+enable_argocd_bootstrap = false
 ```
 
-### 3. Deploy Infrastructure
+### 3. Deploy Infrastructure (Two-Phase Deployment)
+
+This project uses a **two-phase deployment** approach. This is necessary because Terraform's Kubernetes and Helm providers need to connect to the AKS cluster during planning, but the cluster doesn't exist yet on the first run.
+
+#### Phase 1: Deploy Core Infrastructure
+
+First, deploy AKS, networking, ACR, and Key Vault:
 
 ```bash
 cd terraform/environments/dev
@@ -91,9 +101,31 @@ terraform init
 # Review the plan
 terraform plan
 
-# Apply
+# Apply (creates AKS, networking, ACR, Key Vault)
 terraform apply
 ```
+
+#### Phase 2: Bootstrap ArgoCD
+
+After the AKS cluster is created, enable ArgoCD bootstrap:
+
+```bash
+# Option A: Pass variable on command line
+terraform apply -var="enable_argocd_bootstrap=true"
+
+# Option B: Update terraform.tfvars and add:
+# enable_argocd_bootstrap = true
+# Then run: terraform apply
+```
+
+**Why two phases?**
+
+Terraform evaluates provider configurations during the planning phase. The Kubernetes/Helm providers need valid cluster credentials to plan resources, but those credentials don't exist until AKS is created. The `enable_argocd_bootstrap` variable controls whether these providers attempt to connect:
+
+- `false` (default): Providers use placeholder config, ArgoCD module is skipped
+- `true`: Providers use real AKS credentials, ArgoCD is installed
+
+This is a common pattern for Terraform projects that bootstrap Kubernetes resources.
 
 ### 4. Access the Cluster
 
@@ -179,7 +211,3 @@ After deployment, update:
 1. Create a feature branch
 2. Make changes
 3. Submit a pull request
-
-## License
-
-MIT
