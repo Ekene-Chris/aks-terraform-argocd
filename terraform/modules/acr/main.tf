@@ -17,22 +17,5 @@ resource "azurerm_container_registry" "main" {
     }
   }
 
-  # Network rules (Premium SKU only)
-  dynamic "network_rule_set" {
-    for_each = var.sku == "Premium" && var.network_rule_set_default_action != null ? [1] : []
-    content {
-      default_action = var.network_rule_set_default_action
-    }
-  }
-
-  # Retention policy for untagged manifests (Premium SKU)
-  dynamic "retention_policy" {
-    for_each = var.sku == "Premium" ? [1] : []
-    content {
-      days    = var.retention_policy_days
-      enabled = var.retention_policy_enabled
-    }
-  }
-
   tags = var.tags
 }

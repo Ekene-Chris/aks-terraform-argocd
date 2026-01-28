@@ -64,6 +64,12 @@ variable "allowed_subnet_ids" {
   default     = []
 }
 
+variable "enable_workload_identity" {
+  description = "Enable Workload Identity federation (set to true after AKS is created)"
+  type        = bool
+  default     = false
+}
+
 variable "oidc_issuer_url" {
   description = "OIDC issuer URL from the AKS cluster for Workload Identity"
   type        = string

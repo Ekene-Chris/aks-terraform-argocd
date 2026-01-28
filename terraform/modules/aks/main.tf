@@ -19,7 +19,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   default_node_pool {
     name                         = "system"
     vm_size                      = var.system_node_pool_vm_size
-    enable_auto_scaling          = true
+    auto_scaling_enabled         = true
     min_count                    = var.system_node_pool_min_count
     max_count                    = var.system_node_pool_max_count
     vnet_subnet_id               = var.subnet_id
@@ -55,10 +55,10 @@ resource "azurerm_kubernetes_cluster" "main" {
     dns_service_ip    = var.dns_service_ip
   }
 
-  # Azure AD integration with RBAC
+  # Azure AD integration with Azure RBAC
   azure_active_directory_role_based_access_control {
-    azure_rbac_enabled     = true
-    admin_group_object_ids = var.admin_group_object_ids
+    azure_rbac_enabled = true
+    tenant_id          = data.azurerm_client_config.current.tenant_id
   }
 
   # Key Vault secrets provider
@@ -67,26 +67,8 @@ resource "azurerm_kubernetes_cluster" "main" {
     secret_rotation_interval = "2m"
   }
 
-  # Enable Azure Policy
-  azure_policy_enabled = var.azure_policy_enabled
-
-  # Enable HTTP application routing (for dev/test)
-  http_application_routing_enabled = var.http_application_routing_enabled
-
-  # Maintenance window
-  maintenance_window {
-    allowed {
-      day   = "Saturday"
-      hours = [21, 22, 23]
-    }
-    allowed {
-      day   = "Sunday"
-      hours = [0, 1, 2, 3, 4, 5]
-    }
-  }
-
   # Auto-upgrade configuration
-  automatic_channel_upgrade = var.automatic_channel_upgrade
+  automatic_upgrade_channel = var.automatic_channel_upgrade
 
   # SKU tier
   sku_tier = var.sku_tier
@@ -106,7 +88,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   name                  = "user"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = var.user_node_pool_vm_size
-  enable_auto_scaling   = true
+  auto_scaling_enabled  = true
   min_count             = var.user_node_pool_min_count
   max_count             = var.user_node_pool_max_count
   vnet_subnet_id        = var.subnet_id
@@ -140,4 +122,12 @@ resource "azurerm_role_assignment" "aks_network_contributor" {
   scope                = var.subnet_id
   role_definition_name = "Network Contributor"
   principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
+# Grant admin groups cluster admin access via Azure RBAC
+resource "azurerm_role_assignment" "aks_cluster_admin" {
+  for_each             = toset(var.admin_group_object_ids)
+  scope                = azurerm_kubernetes_cluster.main.id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  principal_id         = each.value
 }

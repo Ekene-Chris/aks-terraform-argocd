@@ -43,7 +43,7 @@ resource "azurerm_role_assignment" "external_secrets_reader" {
 
 # Federated Identity Credential for Workload Identity
 resource "azurerm_federated_identity_credential" "external_secrets" {
-  count               = var.oidc_issuer_url != null ? 1 : 0
+  count               = var.enable_workload_identity ? 1 : 0
   name                = "external-secrets-federation"
   resource_group_name = var.resource_group_name
   parent_id           = azurerm_user_assigned_identity.external_secrets.id
