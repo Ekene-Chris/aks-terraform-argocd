@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: https://charts.external-secrets.io
     chart: external-secrets
-    targetRevision: 0.9.11
+    targetRevision: 1.3.1
     helm:
       releaseName: external-secrets
       values: |
