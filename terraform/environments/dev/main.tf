@@ -4,15 +4,19 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.75.0"
+      version = "~> 4.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.23.0"
+      version = "~> 2.35.0"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.11.0"
+      version = "~> 2.17.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6.0"
     }
   }
 
@@ -30,22 +34,45 @@ provider "azurerm" {
       purge_soft_delete_on_destroy = true
     }
   }
+
+  subscription_id = var.subscription_id
+
+  # Skip automatic provider registration if you don't have permissions
+  skip_provider_registration = true
 }
 
-# Configure Helm provider after AKS is created
+# Configure Helm and Kubernetes providers
+# For Azure RBAC-enabled clusters, use exec plugin with kubelogin
 provider "helm" {
   kubernetes {
-    host                   = module.aks.kube_config.host
-    cluster_ca_certificate = base64decode(module.aks.kube_config.cluster_ca_certificate)
-    token                  = module.aks.kube_config.token
+    host                   = var.enable_argocd_bootstrap ? module.aks.kube_config.host : "https://localhost"
+    cluster_ca_certificate = var.enable_argocd_bootstrap ? base64decode(module.aks.kube_config.cluster_ca_certificate) : ""
+
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "kubelogin"
+      args = [
+        "get-token",
+        "--login", "azurecli",
+        "--server-id", "6dae42f8-4368-4678-94ff-3960e28e3630" # Azure Kubernetes Service AAD Server
+      ]
+    }
   }
 }
 
-# Configure Kubernetes provider after AKS is created
 provider "kubernetes" {
-  host                   = module.aks.kube_config.host
-  cluster_ca_certificate = base64decode(module.aks.kube_config.cluster_ca_certificate)
-  token                  = module.aks.kube_config.token
+  host                   = var.enable_argocd_bootstrap ? module.aks.kube_config.host : "https://localhost"
+  cluster_ca_certificate = var.enable_argocd_bootstrap ? base64decode(module.aks.kube_config.cluster_ca_certificate) : ""
+
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "kubelogin"
+    args = [
+      "get-token",
+      "--login", "azurecli",
+      "--server-id", "6dae42f8-4368-4678-94ff-3960e28e3630" # Azure Kubernetes Service AAD Server
+    ]
+  }
 }
 
 # Resource group
@@ -116,8 +143,10 @@ module "key_vault" {
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
 
-  oidc_issuer_url  = module.aks.oidc_issuer_url
-  admin_object_ids = var.admin_group_object_ids
+  # Only configure workload identity after AKS is created
+  enable_workload_identity = var.enable_argocd_bootstrap
+  oidc_issuer_url          = var.enable_argocd_bootstrap ? module.aks.oidc_issuer_url : null
+  admin_object_ids         = var.admin_group_object_ids
 
   allowed_subnet_ids = [module.networking.aks_subnet_id]
 
@@ -134,8 +163,9 @@ resource "azurerm_role_assignment" "aks_acr_pull" {
   skip_service_principal_aad_check = true
 }
 
-# Bootstrap ArgoCD
+# Bootstrap ArgoCD (only after AKS is created - Phase 2)
 module "argocd_bootstrap" {
+  count  = var.enable_argocd_bootstrap ? 1 : 0
   source = "../../modules/argocd-bootstrap"
 
   argocd_domain         = var.argocd_domain

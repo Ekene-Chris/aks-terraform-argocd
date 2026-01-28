@@ -25,7 +25,7 @@ output "key_vault_uri" {
 
 output "argocd_server_url" {
   description = "URL for ArgoCD server"
-  value       = module.argocd_bootstrap.argocd_server_url
+  value       = var.enable_argocd_bootstrap ? module.argocd_bootstrap[0].argocd_server_url : null
 }
 
 output "oidc_issuer_url" {

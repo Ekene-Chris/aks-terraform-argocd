@@ -1,3 +1,8 @@
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
 variable "environment" {
   description = "Environment name"
   type        = string
@@ -49,4 +54,10 @@ variable "target_revision" {
   description = "Git branch or tag for ArgoCD to sync"
   type        = string
   default     = "main"
+}
+
+variable "enable_argocd_bootstrap" {
+  description = "Enable ArgoCD bootstrap (set to true after AKS is created)"
+  type        = bool
+  default     = false
 }
