@@ -6,7 +6,7 @@ kubernetes_version     = "1.34.0"
 admin_group_object_ids = ["6c684ab2-10a1-454f-a7cb-cca90f62f49a"]
 
 # ArgoCD configuration
-argocd_domain   = "myapp.ekenechris.com"
+argocd_domain   = "argocd.ekenechris.com"
 github_org      = "Ekene-Chris"
 github_repo     = "aks-terraform-argocd"
 target_revision = "main"
