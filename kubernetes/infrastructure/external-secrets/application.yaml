@@ -48,7 +48,7 @@ spec:
             memory: 128Mi
 
         serviceMonitor:
-          enabled: true
+          enabled: false
 
   destination:
     server: https://kubernetes.default.svc

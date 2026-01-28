@@ -26,9 +26,9 @@ spec:
               service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
 
           metrics:
-            enabled: true
+            enabled: false
             serviceMonitor:
-              enabled: true
+              enabled: false
 
           resources:
             requests:
