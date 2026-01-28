@@ -131,3 +131,11 @@ resource "azurerm_role_assignment" "aks_cluster_admin" {
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
   principal_id         = each.value
 }
+
+# Grant the current Terraform user cluster admin access
+# This allows Terraform to manage Kubernetes resources via the kubernetes/helm providers
+resource "azurerm_role_assignment" "aks_cluster_admin_current_user" {
+  scope                = azurerm_kubernetes_cluster.main.id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  principal_id         = data.azurerm_client_config.current.object_id
+}

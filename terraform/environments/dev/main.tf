@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.17.0"
     }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "~> 1.14.0"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6.0"
@@ -63,6 +67,22 @@ provider "helm" {
 provider "kubernetes" {
   host                   = var.enable_argocd_bootstrap ? module.aks.kube_config.host : "https://localhost"
   cluster_ca_certificate = var.enable_argocd_bootstrap ? base64decode(module.aks.kube_config.cluster_ca_certificate) : ""
+
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "kubelogin"
+    args = [
+      "get-token",
+      "--login", "azurecli",
+      "--server-id", "6dae42f8-4368-4678-94ff-3960e28e3630" # Azure Kubernetes Service AAD Server
+    ]
+  }
+}
+
+provider "kubectl" {
+  host                   = var.enable_argocd_bootstrap ? module.aks.kube_config.host : "https://localhost"
+  cluster_ca_certificate = var.enable_argocd_bootstrap ? base64decode(module.aks.kube_config.cluster_ca_certificate) : ""
+  load_config_file       = false
 
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"

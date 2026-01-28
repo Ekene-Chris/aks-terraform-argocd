@@ -1,6 +1,23 @@
 # ArgoCD Bootstrap Module
 # Installs ArgoCD via Helm and creates the root App of Apps
 
+terraform {
+  required_providers {
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.0.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = ">= 2.0.0"
+    }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.14.0"
+    }
+  }
+}
+
 # Create ArgoCD namespace
 resource "kubernetes_namespace" "argocd" {
   metadata {
@@ -124,123 +141,86 @@ resource "helm_release" "argocd" {
 }
 
 # Create ArgoCD root application (App of Apps)
-resource "kubernetes_manifest" "argocd_root_application" {
+resource "kubectl_manifest" "argocd_root_application" {
   depends_on = [helm_release.argocd]
 
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "Application"
-
-    metadata = {
-      name      = "root"
-      namespace = "argocd"
-      finalizers = [
-        "resources-finalizer.argocd.argoproj.io"
-      ]
-    }
-
-    spec = {
-      project = "default"
-
-      source = {
-        repoURL        = "https://github.com/${var.github_org}/${var.github_repo}"
-        targetRevision = var.target_revision
-        path           = "kubernetes/bootstrap/${var.environment}"
-      }
-
-      destination = {
-        server    = "https://kubernetes.default.svc"
-        namespace = "argocd"
-      }
-
-      syncPolicy = {
-        automated = {
-          prune    = true
-          selfHeal = true
-        }
-        syncOptions = [
-          "CreateNamespace=true"
-        ]
-      }
-    }
-  }
+  yaml_body = <<-YAML
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: root
+      namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/${var.github_org}/${var.github_repo}
+        targetRevision: ${var.target_revision}
+        path: kubernetes/bootstrap/${var.environment}
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+  YAML
 }
 
 # Create ArgoCD project for infrastructure
-resource "kubernetes_manifest" "argocd_infrastructure_project" {
+resource "kubectl_manifest" "argocd_infrastructure_project" {
   depends_on = [helm_release.argocd]
 
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "AppProject"
-
-    metadata = {
-      name      = "infrastructure"
-      namespace = "argocd"
-    }
-
-    spec = {
-      description = "Infrastructure components managed by ArgoCD"
-
-      sourceRepos = [
-        "https://github.com/${var.github_org}/${var.github_repo}",
-        "https://charts.jetstack.io",
-        "https://kubernetes.github.io/ingress-nginx",
-        "https://charts.external-secrets.io"
-      ]
-
-      destinations = [{
-        namespace = "*"
-        server    = "https://kubernetes.default.svc"
-      }]
-
-      clusterResourceWhitelist = [{
-        group = "*"
-        kind  = "*"
-      }]
-
-      namespaceResourceWhitelist = [{
-        group = "*"
-        kind  = "*"
-      }]
-    }
-  }
+  yaml_body = <<-YAML
+    apiVersion: argoproj.io/v1alpha1
+    kind: AppProject
+    metadata:
+      name: infrastructure
+      namespace: argocd
+    spec:
+      description: Infrastructure components managed by ArgoCD
+      sourceRepos:
+        - https://github.com/${var.github_org}/${var.github_repo}
+        - https://charts.jetstack.io
+        - https://kubernetes.github.io/ingress-nginx
+        - https://charts.external-secrets.io
+      destinations:
+        - namespace: "*"
+          server: https://kubernetes.default.svc
+      clusterResourceWhitelist:
+        - group: "*"
+          kind: "*"
+      namespaceResourceWhitelist:
+        - group: "*"
+          kind: "*"
+  YAML
 }
 
 # Create ArgoCD project for dev applications
-resource "kubernetes_manifest" "argocd_dev_apps_project" {
+resource "kubectl_manifest" "argocd_dev_apps_project" {
   depends_on = [helm_release.argocd]
 
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "AppProject"
-
-    metadata = {
-      name      = "dev-apps"
-      namespace = "argocd"
-    }
-
-    spec = {
-      description = "Development applications"
-
-      sourceRepos = [
-        "https://github.com/${var.github_org}/${var.github_repo}"
-      ]
-
-      destinations = [{
-        namespace = "dev-*"
-        server    = "https://kubernetes.default.svc"
-      }]
-
-      clusterResourceWhitelist = [{
-        group = ""
-        kind  = "Namespace"
-      }]
-
-      namespaceResourceWhitelist = [{
-        group = "*"
-        kind  = "*"
-      }]
-    }
-  }
+  yaml_body = <<-YAML
+    apiVersion: argoproj.io/v1alpha1
+    kind: AppProject
+    metadata:
+      name: dev-apps
+      namespace: argocd
+    spec:
+      description: Development applications
+      sourceRepos:
+        - https://github.com/${var.github_org}/${var.github_repo}
+      destinations:
+        - namespace: "dev-*"
+          server: https://kubernetes.default.svc
+      clusterResourceWhitelist:
+        - group: ""
+          kind: Namespace
+      namespaceResourceWhitelist:
+        - group: "*"
+          kind: "*"
+  YAML
 }
