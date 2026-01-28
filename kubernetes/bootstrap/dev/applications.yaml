@@ -9,12 +9,12 @@ spec:
   project: dev-apps
 
   source:
-    repoURL: https://github.com/your-org/your-repo
+    repoURL: https://github.com/Ekene-Chris/aks-terraform-argocd
     targetRevision: main
     path: kubernetes/applications/dev
     directory:
       recurse: true
-      include: '*/application.yaml'
+      include: "*/application.yaml"
 
   destination:
     server: https://kubernetes.default.svc
